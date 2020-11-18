@@ -2,6 +2,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(PlayerMovement))]
+[RequireComponent(typeof(ConfigurableJoint))]
 public class PlayerController : NetworkBehaviour
 {
     
@@ -13,16 +14,41 @@ public class PlayerController : NetworkBehaviour
     [SerializeField]
     private float mouseSensitivity = 10f;
 
+    [SerializeField]
+    private float jetpackForce = 1000f;
+
+    [Header("Joint Settings:")]
+    [SerializeField]
+    private float jointSpring = 20f;
+    [SerializeField]
+    private float jointMaxForce = 50f;
+
 
     private PlayerMovement movement;
+    private ConfigurableJoint joint;
+
+    private bool cursorLocked = true;
 
     void Start() {
         movement = GetComponent<PlayerMovement>();
+        joint = GetComponent<ConfigurableJoint>();
         baseSpeed = speed;
+        Cursor.lockState = CursorLockMode.Locked;
+
+        setJointSettings(jointSpring);
     }
 
     void Update() {
-        if(!isLocalPlayer) return;
+        //Toggle lock of cursor
+        if(Input.GetKeyDown(KeyCode.L)) {
+            if(cursorLocked) {
+                Cursor.lockState = CursorLockMode.None;
+            } else {
+                Cursor.lockState = CursorLockMode.Locked;
+            }
+            cursorLocked = !cursorLocked;
+        }
+
         //calculate movment velocity as 3D vector
         float xMove = Input.GetAxisRaw("Horizontal");
         float zMove = Input.GetAxisRaw("Vertical");
@@ -51,10 +77,29 @@ public class PlayerController : NetworkBehaviour
 
         //get vertical rotation as a 3d vector
         float xRotation = Input.GetAxisRaw("Mouse Y");
-        Vector3 cameraRotation = new Vector3(xRotation, 0f, 0f) * mouseSensitivity;
+        float cameraRotationX = xRotation * mouseSensitivity;
 
         //send camera rotation to movement script
-        movement.SetCameraRotation(cameraRotation);
+        movement.SetCameraRotation(cameraRotationX);
+
+        //apply jetpack force
+        Vector3 _jetpackForce = Vector3.zero;
+        //check for jumping
+        if(Input.GetButton("Jump")) {//change jetpack key later so you can jump and fly
+
+            _jetpackForce = Vector3.up * jetpackForce;
+            setJointSettings(0);
+        } else {
+            setJointSettings(jointSpring);
+        }
+        movement.SetJetpackForce(_jetpackForce);
+    }
+
+    private void setJointSettings(float _jointSpring) {
+        joint.yDrive = new JointDrive {
+            positionSpring = _jointSpring, 
+            maximumForce = jointMaxForce
+        };
     }
 
 }
